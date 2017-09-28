@@ -160,7 +160,8 @@ void ioInit(void)
 
 #define COMMAND_LENGTH 4
 const char* g_arrCommands[] = {"STAR", "STOP", "LED3", "LED5", "LED6"};
-uint16_t clientPort;
+char_t g_szIpRemote[256];
+uint16_t g_clientPort;
 IpAddr clientIpAddr;
 OsEvent eventStartSendStatuts;
 volatile bool_t g_bSendStatus = FALSE;
@@ -192,6 +193,9 @@ void CommandServer(void *param)
    ipv4GetHostAddr(interface, &ipv4Addr);
    //printf("%-16s\r\n", ipv4AddrToString(ipv4Addr, buffer));
 #endif
+
+   // Fill zeroes on client IP address
+   memset(g_szIpRemote, '\0', sizeof(g_szIpRemote));
 
    //Open a TCP socket
    socket = socketOpen(SOCKET_TYPE_STREAM, SOCKET_IP_PROTO_TCP);
@@ -237,13 +241,15 @@ void CommandServer(void *param)
    while(1)
    {
       //Accept an incoming connection
-      socketCli = socketAccept(socket, &clientIpAddr, &clientPort);
+      socketCli = socketAccept(socket, &clientIpAddr, &g_clientPort);
 
       //Make sure the socket handle is valid
       if(socketCli != NULL)
       {
+         strcpy(g_szIpRemote, ipAddrToString(&clientIpAddr, NULL));
+
          TRACE_INFO("Incoming Connection from client %s port %" PRIu16 "...\r\n",
-                     ipAddrToString(&clientIpAddr, NULL), clientPort);
+               g_szIpRemote, g_clientPort);
 
          //Read response body
          while (socketReceive(socketCli, buffer, sizeof(buffer), &length, 0) == 0)
@@ -322,21 +328,21 @@ void SendLEDStatuts(void* pParam)
          break;
       }
 
-      //Resolve TCP server name
-      error = getHostByName(NULL, "192.168.69.42", &ipAddr, 0);
-      //Any error to report?
-      if(error)
-      {
-         TRACE_ERROR("getHostByName error !\r\n");
-         break;
-      }
-
       //Create a new socket to handle the request
       socket = socketOpen(SOCKET_TYPE_STREAM, SOCKET_IP_PROTO_TCP);
       //Any error to report?
       if(!socket)
       {
          TRACE_ERROR("socketOpen error !\r\n");
+         break;
+      }
+
+      //Resolve TCP server name
+      error = getHostByName(NULL, g_szIpRemote, &ipAddr, 0);
+      //Any error to report?
+      if(error)
+      {
+         TRACE_ERROR("getHostByName error !\r\n");
          break;
       }
 
@@ -413,9 +419,9 @@ int main(void)
 
    //Start-up message
    TRACE_INFO("\r\n");
-   TRACE_INFO("******************************************************\r\n");
-   TRACE_INFO("*** CycloneTCP TCP Client/Server Demo by embeddedmz***\r\n");
-   TRACE_INFO("******************************************************\r\n");
+   TRACE_INFO("*******************************************************\r\n");
+   TRACE_INFO("*** CycloneTCP TCP Client/Server Demo by embeddedmz ***\r\n");
+   TRACE_INFO("*******************************************************\r\n");
    TRACE_INFO("Copyright: 2010-2017 Oryx Embedded SARL\r\n");
    TRACE_INFO("Compiled: %s %s\r\n", __DATE__, __TIME__);
    TRACE_INFO("Target: STM32F407\r\n");
